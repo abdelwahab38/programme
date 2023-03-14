@@ -1,0 +1,1289 @@
+###################################################################################################
+################################ Rasterisation de nuages de points ################################
+###################################################################################################
+
+
+
+######################################## Import des modules #######################################
+
+print("\n\n----------------Création de raster----------------\n\n")
+
+import numpy as np
+import pdal 
+from osgeo import gdal
+import glob
+import time
+import os
+import PySimpleGUI as sg
+import shutil
+import glob
+import logging
+from threading import Thread
+
+print("Modules importés, lancement du traitement\n") # Permet de voir si les modules sont bien importés
+
+
+###################################################################################################
+
+###################################################################################################
+path_programm = "C:/Users/blanchard/Downloads/Code Python/PROGRAMME_CBR_v1-3" # <-- EMPLACEMENT DU DOSSIER A MODIFIER SELON L'EMPLACEMENT DU FICHIER
+###################################################################################################
+
+path_pipeline = "%s/pipeline" % (path_programm) # Récupération des chemins relatifs
+path_cpt = "%s/cpt" % (path_programm)
+path_converter = "%s/PotreeConverter_1.6" % (path_programm)
+path_PREVIEW = "%s/PREVIEW.py" % (path_programm)
+merge = "%s/pipeline/gdal_merge.py" % (path_programm)
+
+
+###################################################################################################
+
+start_time = time.time() # Permet de récupérer les temps de process
+
+Theme = 'SystemDefault' # 'Dark Grey 13' 'LightBrown6' # Thème pour le GUI, peut être modifié       
+
+
+###################################################################################################
+###################################################################################################
+###################################################################################################
+
+#################################### analyse du nuage en input ####################################
+
+def info_nuage():
+    info_cloud = "pdal info -i %s > %s/log/%s_infos_input.json" % (input_file, output_folder, filename) # Commande Pdal info pour écrire les infos du nu nuage en input dans un json
+    os.system(info_cloud) # Rempli le fichier .log
+
+    print("Rapport du nuage d'entrée crée")
+    print("--- %s s ---" % round((time.time() - start_time))) # Affiche le temps de process
+
+
+####################################### découpage du nuage ########################################
+
+def decoupage_nuage():
+
+    split_cloud_json = """
+    {
+        "pipeline":	[
+            {
+                "type":"readers.las",
+                "filename":"%s"
+            },
+            {
+                "type":"filters.chipper",
+                "capacity":"%s"
+            },
+            {
+                "type" : "writers.las",
+                "scale_x":"0.001",
+                "scale_y":"0.001",
+                "scale_z":"0.001",
+                "offset_x":"auto",
+                "offset_y":"auto",
+                "offset_z":"auto",
+                "filename" : "%s/cache/tile_#.laz"
+            }
+        ]
+    }
+    """ % (input_file, points_par_box, output_folder) # Pipeline Pdal pour découper le nuage en entrée et le traiter facilement
+
+    pipeline = pdal.Pipeline(split_cloud_json)
+    count = pipeline.execute()
+    arrays = pipeline.arrays
+    metadata = pipeline.metadata
+    log = pipeline.log
+
+    print("Nuage découpé")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+######################################## MultiprocessingSMRF ######################################
+
+def process1_SMRF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder)) # Classification du sol en traitant 5 dalles à la fois
+    nb_tile = len(tile_etoile_laz)
+    for tile1 in range (1, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile1))
+        command = 'pdal pipeline %s/filters_smrf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile1, output_folder, tile1)
+        os.system(command.format(command))
+        tile1 += 1
+
+def process2_SMRF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile2 in range (2, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile2))
+        command = 'pdal pipeline %s/filters_smrf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile2, output_folder, tile2)
+        os.system(command.format(command))
+        tile2 += 1
+
+def process3_SMRF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile3 in range (3, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile3))
+        command = 'pdal pipeline %s/filters_smrf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile3, output_folder, tile3)
+        os.system(command.format(command))
+        tile3 += 1
+
+def process4_SMRF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile4 in range (4, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile4))
+        command = 'pdal pipeline %s/filters_smrf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile4, output_folder, tile4)
+        os.system(command.format(command))
+        tile4 += 1
+
+def process5_SMRF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile5 in range (5, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile5))
+        command = 'pdal pipeline %s/filters_smrf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile5, output_folder, tile5)
+        os.system(command.format(command))
+        tile5 += 1
+
+def multiprocessingSMRF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    if nb_tile > 5:
+        print("Multiprocessing SMRF")
+        p1 = Thread(target=process1_SMRF)
+        p1.start()
+        p1.join
+        p2 = Thread(target=process2_SMRF)
+        p2.start()
+        p2.join
+        p3 = Thread(target=process3_SMRF)
+        p3.start()
+        p3.join
+        p4 = Thread(target=process4_SMRF)
+        p4.start()
+        p4.join
+        p5 = Thread(target=process5_SMRF)
+        p5.start()
+        p5.join
+
+        threads = [p1, p2, p3, p4, p5]
+
+        while (True): # Attend que toutes les dalles soient traitées pour poursuivre
+            current_state = []
+            for state in threads:
+                current_state.append(state.is_alive())
+            still_running = any(current_state)
+            if (not still_running): 
+                break
+            time.sleep(1)
+
+    else: # S'il y a moins de 5 dalles, on les traite à la suite
+        for tile in tile_etoile_laz:
+            print("Running " + tile)
+            command = 'pdal pipeline %s/filters_smrf.json --readers.las.filename="{input}" --writers.las.filename=%s/cache/' % (path_pipeline, output_folder) + os.path.basename(tile) 
+            os.system(command.format(command, input = tile))
+
+    print("Nuage classifié")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+######################################## MultiprocessingCSF ######################################
+
+def process1_CSF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder)) # Autre algo de classif sol mais même principe
+    nb_tile = len(tile_etoile_laz)
+    for tile1 in range (1, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile1))
+        command = 'pdal pipeline %s/filters_csf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile1, output_folder, tile1)
+        os.system(command.format(command))
+        tile1 += 1
+
+def process2_CSF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile2 in range (2, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile2))
+        command = 'pdal pipeline %s/filters_csf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile2, output_folder, tile2)
+        os.system(command.format(command))
+        tile2 += 1
+
+def process3_CSF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile3 in range (3, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile3))
+        command = 'pdal pipeline %s/filters_csf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile3, output_folder, tile3)
+        os.system(command.format(command))
+        tile3 += 1
+
+def process4_CSF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile4 in range (4, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile4))
+        command = 'pdal pipeline %s/filters_csf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile4, output_folder, tile4)
+        os.system(command.format(command))
+        tile4 += 1
+
+def process5_CSF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile5 in range (5, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile5))
+        command = 'pdal pipeline %s/filters_csf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile5, output_folder, tile5)
+        os.system(command.format(command))
+        tile5 += 1
+
+def multiprocessingCSF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    if nb_tile > 5:
+        print("Multiprocessing csf")
+        p1 = Thread(target=process1_CSF)
+        p1.start()
+        p1.join
+        p2 = Thread(target=process2_CSF)
+        p2.start()
+        p2.join
+        p3 = Thread(target=process3_CSF)
+        p3.start()
+        p3.join
+        p4 = Thread(target=process4_CSF)
+        p4.start()
+        p4.join
+        p5 = Thread(target=process5_CSF)
+        p5.start()
+        p5.join
+
+        threads = [p1, p2, p3, p4, p5]
+
+        while (True):
+            current_state = []
+            for state in threads:
+                current_state.append(state.is_alive())
+            still_running = any(current_state)
+            if (not still_running):
+                break
+            time.sleep(1)
+
+    else:
+        for tile in tile_etoile_laz:
+            print("Running " + tile)
+            command = 'pdal pipeline %s/filters_csf.json --readers.las.filename="{input}" --writers.las.filename=%s/cache/' % (path_pipeline, output_folder) + os.path.basename(tile) 
+            os.system(command.format(command, input = tile))
+
+    print("Nuage classifié")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+######################################## MultiprocessingPMF ######################################
+
+def process1_PMF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder)) # Autre algo de classif sol mais même principe
+    nb_tile = len(tile_etoile_laz)
+    for tile1 in range (1, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile1))
+        command = 'pdal pipeline %s/filters_pmf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile1, output_folder, tile1)
+        os.system(command.format(command))
+        tile1 += 1
+
+def process2_PMF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile2 in range (2, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile2))
+        command = 'pdal pipeline %s/filters_pmf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile2, output_folder, tile2)
+        os.system(command.format(command))
+        tile2 += 1
+
+def process3_PMF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile3 in range (3, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile3))
+        command = 'pdal pipeline %s/filters_pmf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile3, output_folder, tile3)
+        os.system(command.format(command))
+        tile3 += 1
+
+def process4_PMF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile4 in range (4, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile4))
+        command = 'pdal pipeline %s/filters_pmf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile4, output_folder, tile4)
+        os.system(command.format(command))
+        tile4 += 1
+
+def process5_PMF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile5 in range (5, nb_tile+1, 5):
+        print("Running_classif tile %s" % (tile5))
+        command = 'pdal pipeline %s/filters_pmf.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.las.filename=%s/cache/tile_%s.laz' % (path_pipeline, output_folder, tile5, output_folder, tile5)
+        os.system(command.format(command))
+        tile5 += 1
+
+def multiprocessingPMF():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    if nb_tile > 5:
+        print("Multiprocessing pmf")
+        p1 = Thread(target=process1_PMF)
+        p1.start()
+        p1.join
+        p2 = Thread(target=process2_PMF)
+        p2.start()
+        p2.join
+        p3 = Thread(target=process3_PMF)
+        p3.start()
+        p3.join
+        p4 = Thread(target=process4_PMF)
+        p4.start()
+        p4.join
+        p5 = Thread(target=process5_PMF)
+        p5.start()
+        p5.join
+
+        threads = [p1, p2, p3, p4, p5]
+
+        while (True):
+            current_state = []
+            for state in threads:
+                current_state.append(state.is_alive())
+            still_running = any(current_state)
+            if (not still_running):
+                break
+            time.sleep(1)
+
+    else:
+        for tile in tile_etoile_laz:
+            print("Running " + tile)
+            command = 'pdal pipeline %s/filters_pmf.json --readers.las.filename="{input}" --writers.las.filename=%s/cache/' % (path_pipeline, output_folder) + os.path.basename(tile) 
+            os.system(command.format(command, input = tile))
+
+    print("Nuage classifié")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+##################### création du champs scalaire HAG sur les nuages découpés #####################
+
+def creation_hag():
+    classif_tile_etoile_laz = glob.glob("%s\\cache\\*.laz" % (output_folder)) # Création d'une liste de toutes les dalles
+
+    for tile in classif_tile_etoile_laz: # Boucle sur toutes les dalles
+        print("Running " + tile)
+        command = 'pdal pipeline %s/filters_hag.json --readers.las.filename="{input}" --writers.las.filename=%s/cache/' % (path_pipeline, output_folder) + os.path.basename(tile) # Création du champs scalaire HAG enregistré dans GPS Time via le pipeline
+        os.system(command.format(command, input = tile))
+
+    print("Nuage enrichi")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+################################# Multiprocessing raster Elevation ################################
+
+def process1_elev():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder)) # Traitement de 5 dalles à la fois pour créer un raster selon le champs Z
+    nb_tile = len(tile_etoile_laz)
+    for tile1 in range (1, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile1))
+        command = 'pdal pipeline %s/creation_raster_elevation.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_elevation.tif' % (path_pipeline, output_folder, tile1, output_folder, tile1)
+        os.system(command.format(command)) # Utilisation du pipeline pour la rasterisation
+        tile1 += 1
+
+def process2_elev():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile2 in range (2, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile2))
+        command = 'pdal pipeline %s/creation_raster_elevation.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_elevation.tif' % (path_pipeline, output_folder, tile2, output_folder, tile2)
+        os.system(command.format(command))
+        tile2 += 1
+
+def process3_elev():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile3 in range (3, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile3))
+        command = 'pdal pipeline %s/creation_raster_elevation.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_elevation.tif' % (path_pipeline, output_folder, tile3, output_folder, tile3)
+        os.system(command.format(command))
+        tile3 += 1
+
+def process4_elev():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile4 in range (4, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile4))
+        command = 'pdal pipeline %s/creation_raster_elevation.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_elevation.tif' % (path_pipeline, output_folder, tile4, output_folder, tile4)
+        os.system(command.format(command))
+        tile4 += 1
+
+def process5_elev():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile5 in range (5, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile5))
+        command = 'pdal pipeline %s/creation_raster_elevation.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_elevation.tif' % (path_pipeline, output_folder, tile5, output_folder, tile5)
+        os.system(command.format(command))
+        tile5 += 1
+
+def multiprocessingELEV():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    if nb_tile > 5:
+        print("multiprocessing raster Elevation")
+        p1 = Thread(target=process1_elev)
+        p1.start()
+        p1.join
+        p2 = Thread(target=process2_elev)
+        p2.start()
+        p2.join
+        p3 = Thread(target=process3_elev)
+        p3.start()
+        p3.join
+        p4 = Thread(target=process4_elev)
+        p4.start()
+        p4.join
+        p5 = Thread(target=process5_elev)
+        p5.start()
+        p5.join
+
+        threads = [p1, p2, p3, p4, p5]
+
+        while (True):
+            current_state = []
+            for state in threads:
+                current_state.append(state.is_alive())
+            still_running = any(current_state)
+            if (not still_running):
+                break
+            time.sleep(1)
+
+    else:
+        enrichi_classif_tile_etoile_laz = glob.glob("%s\\cache\\*.laz" % (output_folder))
+        x = 1
+        for tile in enrichi_classif_tile_etoile_laz:
+            print("Running " + tile)
+            command = 'pdal pipeline %s/creation_raster_elevation.json --readers.las.filename="{input}" --writers.gdal.filename=%s/cache/%s_elevation.tif' % (path_pipeline, output_folder, x)
+            os.system(command.format(command, input = tile))
+            x += 1
+
+    print("Raster d'elevation ok")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+######################################## Multiprocessing raster Intensity ######################################
+
+def process1_int():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder)) # Idem mais en faisant des rasters selon le champs scalaire Intensity
+    nb_tile = len(tile_etoile_laz)
+    for tile1 in range (1, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile1))
+        command = 'pdal pipeline %s/creation_raster_intensity.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_intensity.tif' % (path_pipeline, output_folder, tile1, output_folder, tile1)
+        os.system(command.format(command))
+        tile1 += 1
+
+def process2_int():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile2 in range (2, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile2))
+        command = 'pdal pipeline %s/creation_raster_intensity.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_intensity.tif' % (path_pipeline, output_folder, tile2, output_folder, tile2)
+        os.system(command.format(command))
+        tile2 += 1
+
+def process3_int():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile3 in range (3, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile3))
+        command = 'pdal pipeline %s/creation_raster_intensity.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_intensity.tif' % (path_pipeline, output_folder, tile3, output_folder, tile3)
+        os.system(command.format(command))
+        tile3 += 1
+
+def process4_int():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile4 in range (4, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile4))
+        command = 'pdal pipeline %s/creation_raster_intensity.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_intensity.tif' % (path_pipeline, output_folder, tile4, output_folder, tile4)
+        os.system(command.format(command))
+        tile4 += 1
+
+def process5_int():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile5 in range (5, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile5))
+        command = 'pdal pipeline %s/creation_raster_intensity.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_intensity.tif' % (path_pipeline, output_folder, tile5, output_folder, tile5)
+        os.system(command.format(command))
+        tile5 += 1
+
+def multiprocessingINT():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    if nb_tile > 5:
+        print("multiprocessing raster Intensity")
+        p1 = Thread(target=process1_int)
+        p1.start()
+        p1.join
+        p2 = Thread(target=process2_int)
+        p2.start()
+        p2.join
+        p3 = Thread(target=process3_int)
+        p3.start()
+        p3.join
+        p4 = Thread(target=process4_int)
+        p4.start()
+        p4.join
+        p5 = Thread(target=process5_int)
+        p5.start()
+        p5.join
+
+        threads = [p1, p2, p3, p4, p5]
+
+        while (True):
+            current_state = []
+            for state in threads:
+                current_state.append(state.is_alive())
+            still_running = any(current_state) # Il y a t il au moins un alive?
+            if (not still_running): # Si plus rien ne tourne
+                break
+            time.sleep(1)
+
+    else:
+        enrichi_classif_tile_etoile_laz = glob.glob("%s\\cache\\*.laz" % (output_folder))
+        x = 1
+        for tile in enrichi_classif_tile_etoile_laz:
+            print("Running " + tile)
+            command = 'pdal pipeline %s/creation_raster_intensity.json --readers.las.filename="{input}" --writers.gdal.filename=%s/cache/%s_intensity.tif' % (path_pipeline, output_folder, x)
+            os.system(command.format(command, input = tile))
+            x += 1
+
+    print("Raster GS ok")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+######################################## Multiprocessing raster HAG ######################################
+
+def process1_hag():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder)) # Idem mais en faisant des rasters selon le champs scalaire HAG précédement crée
+    nb_tile = len(tile_etoile_laz)
+    for tile1 in range (1, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile1))
+        command = 'pdal pipeline %s/creation_raster_hag.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_hag.tif' % (path_pipeline, output_folder, tile1, output_folder, tile1)
+        os.system(command.format(command))
+        tile1 += 1
+
+def process2_hag():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile2 in range (2, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile2))
+        command = 'pdal pipeline %s/creation_raster_hag.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_hag.tif' % (path_pipeline, output_folder, tile2, output_folder, tile2)
+        os.system(command.format(command))
+        tile2 += 1
+
+def process3_hag():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile3 in range (3, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile3))
+        command = 'pdal pipeline %s/creation_raster_hag.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_hag.tif' % (path_pipeline, output_folder, tile3, output_folder, tile3)
+        os.system(command.format(command))
+        tile3 += 1
+
+def process4_hag():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile4 in range (4, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile4))
+        command = 'pdal pipeline %s/creation_raster_hag.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_hag.tif' % (path_pipeline, output_folder, tile4, output_folder, tile4)
+        os.system(command.format(command))
+        tile4 += 1
+
+def process5_hag():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile5 in range (5, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile5))
+        command = 'pdal pipeline %s/creation_raster_hag.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_hag.tif' % (path_pipeline, output_folder, tile5, output_folder, tile5)
+        os.system(command.format(command))
+        tile5 += 1
+
+def multiprocessingHAG():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    if nb_tile > 5:
+        print("multiprocessing raster HAG")
+        p1 = Thread(target=process1_hag)
+        p1.start()
+        p1.join
+        p2 = Thread(target=process2_hag)
+        p2.start()
+        p2.join
+        p3 = Thread(target=process3_hag)
+        p3.start()
+        p3.join
+        p4 = Thread(target=process4_hag)
+        p4.start()
+        p4.join
+        p5 = Thread(target=process5_hag)
+        p5.start()
+        p5.join
+
+        threads = [p1, p2, p3, p4, p5]
+
+        while (True):
+            current_state = []
+            for state in threads:
+                current_state.append(state.is_alive())
+            still_running = any(current_state) # Il y a t il au moins un alive?
+            if (not still_running): # Si plus rien ne tourne
+                break
+            time.sleep(1)
+
+    else:
+        enrichi_classif_tile_etoile_laz = glob.glob("%s\\cache\\*.laz" % (output_folder))
+        x = 1
+        for tile in enrichi_classif_tile_etoile_laz:
+            print("Running " + tile)
+            command = 'pdal pipeline %s/creation_raster_hag.json --readers.las.filename="{input}" --writers.gdal.filename=%s/cache/%s_hag.tif' % (path_pipeline, output_folder, x)
+            os.system(command.format(command, input = tile))
+            x += 1
+
+    print("Raster hag ok")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+######################################## Multiprocessing raster RGB ######################################
+
+def process1_red():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder)) # Fonction utilisée que pour les nuages issues de photogra
+    nb_tile = len(tile_etoile_laz)
+    for tile1 in range (1, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile1))
+        command = 'pdal pipeline %s/creation_raster_red.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_red.tif' % (path_pipeline, output_folder, tile1, output_folder, tile1)
+        os.system(command.format(command)) # Création de raster selon le champs scalaire Red
+        tile1 += 1
+
+def process2_red():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile2 in range (2, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile2))
+        command = 'pdal pipeline %s/creation_raster_red.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_red.tif' % (path_pipeline, output_folder, tile2, output_folder, tile2)
+        os.system(command.format(command))
+        tile2 += 1
+
+def process3_red():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile3 in range (3, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile3))
+        command = 'pdal pipeline %s/creation_raster_red.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_red.tif' % (path_pipeline, output_folder, tile3, output_folder, tile3)
+        os.system(command.format(command))
+        tile3 += 1
+
+def process4_red():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile4 in range (4, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile4))
+        command = 'pdal pipeline %s/creation_raster_red.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_red.tif' % (path_pipeline, output_folder, tile4, output_folder, tile4)
+        os.system(command.format(command))
+        tile4 += 1
+
+def process5_red():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile5 in range (5, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile5))
+        command = 'pdal pipeline %s/creation_raster_red.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_red.tif' % (path_pipeline, output_folder, tile5, output_folder, tile5)
+        os.system(command.format(command))
+        tile5 += 1
+
+def multiprocessing_red():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    if nb_tile > 5:
+        print("multiprocessing raster red")
+        p1 = Thread(target=process1_red)
+        p1.start()
+        p1.join
+        p2 = Thread(target=process2_red)
+        p2.start()
+        p2.join
+        p3 = Thread(target=process3_red)
+        p3.start()
+        p3.join
+        p4 = Thread(target=process4_red)
+        p4.start()
+        p4.join
+        p5 = Thread(target=process5_red)
+        p5.start()
+        p5.join
+
+        threads = [p1, p2, p3, p4, p5]
+
+        while (True):
+            current_state = []
+            for state in threads:
+                current_state.append(state.is_alive())
+            still_running = any(current_state) # Il y a t il au moins un alive?
+            if (not still_running): # Si plus rien ne tourne
+                break
+            time.sleep(1)
+
+    else:
+        enrichi_classif_tile_etoile_laz = glob.glob("%s\\cache\\*.laz" % (output_folder))
+        x = 1
+        for tile in enrichi_classif_tile_etoile_laz:
+            print("Running " + tile)
+            command = 'pdal pipeline %s/creation_raster_red.json --readers.las.filename="{input}" --writers.gdal.filename=%s/cache/%s_red.tif' % (path_pipeline, output_folder, x)
+            os.system(command.format(command, input = tile))
+            x += 1
+
+    print("Raster red ok")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+def process1_blue(): 
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder)) # Idem pour faire un raster selon le champs Blue
+    nb_tile = len(tile_etoile_laz)
+    for tile1 in range (1, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile1))
+        command = 'pdal pipeline %s/creation_raster_blue.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_blue.tif' % (path_pipeline, output_folder, tile1, output_folder, tile1)
+        os.system(command.format(command))
+        tile1 += 1
+
+def process2_blue():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile2 in range (2, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile2))
+        command = 'pdal pipeline %s/creation_raster_blue.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_blue.tif' % (path_pipeline, output_folder, tile2, output_folder, tile2)
+        os.system(command.format(command))
+        tile2 += 1
+
+def process3_blue():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile3 in range (3, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile3))
+        command = 'pdal pipeline %s/creation_raster_blue.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_blue.tif' % (path_pipeline, output_folder, tile3, output_folder, tile3)
+        os.system(command.format(command))
+        tile3 += 1
+
+def process4_blue():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile4 in range (4, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile4))
+        command = 'pdal pipeline %s/creation_raster_blue.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_blue.tif' % (path_pipeline, output_folder, tile4, output_folder, tile4)
+        os.system(command.format(command))
+        tile4 += 1
+
+def process5_blue():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile5 in range (5, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile5))
+        command = 'pdal pipeline %s/creation_raster_blue.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_blue.tif' % (path_pipeline, output_folder, tile5, output_folder, tile5)
+        os.system(command.format(command))
+        tile5 += 1
+
+def multiprocessing_blue():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    if nb_tile > 5:
+        print("multiprocessing raster blue")
+        p1 = Thread(target=process1_blue)
+        p1.start()
+        p1.join
+        p2 = Thread(target=process2_blue)
+        p2.start()
+        p2.join
+        p3 = Thread(target=process3_blue)
+        p3.start()
+        p3.join
+        p4 = Thread(target=process4_blue)
+        p4.start()
+        p4.join
+        p5 = Thread(target=process5_blue)
+        p5.start()
+        p5.join
+
+        threads = [p1, p2, p3, p4, p5]
+
+        while (True):
+            current_state = []
+            for state in threads:
+                current_state.append(state.is_alive())
+            still_running = any(current_state) # Il y a t il au moins un alive?
+            if (not still_running): # Si plus rien ne tourne
+                break
+            time.sleep(1)
+
+    else:
+        enrichi_classif_tile_etoile_laz = glob.glob("%s\\cache\\*.laz" % (output_folder))
+        x = 1
+        for tile in enrichi_classif_tile_etoile_laz:
+            print("Running " + tile)
+            command = 'pdal pipeline %s/creation_raster_blue.json --readers.las.filename="{input}" --writers.gdal.filename=%s/cache/%s_blue.tif' % (path_pipeline, output_folder, x)
+            os.system(command.format(command, input = tile))
+            x += 1
+
+    print("Raster blue ok")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+def process1_green():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder)) # Idem pour faire un raster selon le champs Green
+    nb_tile = len(tile_etoile_laz)
+    for tile1 in range (1, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile1))
+        command = 'pdal pipeline %s/creation_raster_green.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_green.tif' % (path_pipeline, output_folder, tile1, output_folder, tile1)
+        os.system(command.format(command))
+        tile1 += 1
+
+def process2_green():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile2 in range (2, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile2))
+        command = 'pdal pipeline %s/creation_raster_green.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_green.tif' % (path_pipeline, output_folder, tile2, output_folder, tile2)
+        os.system(command.format(command))
+        tile2 += 1
+
+def process3_green():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile3 in range (3, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile3))
+        command = 'pdal pipeline %s/creation_raster_green.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_green.tif' % (path_pipeline, output_folder, tile3, output_folder, tile3)
+        os.system(command.format(command))
+        tile3 += 1
+
+def process4_green():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile4 in range (4, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile4))
+        command = 'pdal pipeline %s/creation_raster_green.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_green.tif' % (path_pipeline, output_folder, tile4, output_folder, tile4)
+        os.system(command.format(command))
+        tile4 += 1
+
+def process5_green():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    for tile5 in range (5, nb_tile+1, 5):
+        print("Running_raster tile %s" % (tile5))
+        command = 'pdal pipeline %s/creation_raster_green.json --readers.las.filename="%s/cache/tile_%s.laz" --writers.gdal.filename=%s/cache/%s_green.tif' % (path_pipeline, output_folder, tile5, output_folder, tile5)
+        os.system(command.format(command))
+        tile5 += 1
+
+def multiprocessing_green():
+    tile_etoile_laz = glob.glob("%s\\cache\\tile_*.laz" % (output_folder))
+    nb_tile = len(tile_etoile_laz)
+    if nb_tile > 5:
+        print("multiprocessing raster green")
+        p1 = Thread(target=process1_green)
+        p1.start()
+        p1.join
+        p2 = Thread(target=process2_green)
+        p2.start()
+        p2.join
+        p3 = Thread(target=process3_green)
+        p3.start()
+        p3.join
+        p4 = Thread(target=process4_green)
+        p4.start()
+        p4.join
+        p5 = Thread(target=process5_green)
+        p5.start()
+        p5.join
+
+        threads = [p1, p2, p3, p4, p5]
+
+        while (True):
+            current_state = []
+            for state in threads:
+                current_state.append(state.is_alive())
+            still_running = any(current_state) # Il y a t il au moins un alive?
+            if (not still_running): # Si plus rien ne tourne
+                break
+            time.sleep(1)
+
+    else:
+        enrichi_classif_tile_etoile_laz = glob.glob("%s\\cache\\*.laz" % (output_folder))
+        x = 1
+        for tile in enrichi_classif_tile_etoile_laz:
+            print("Running " + tile)
+            command = 'pdal pipeline %s/creation_raster_green.json --readers.las.filename="{input}" --writers.gdal.filename=%s/cache/%s_green.tif' % (path_pipeline, output_folder, x)
+            os.system(command.format(command, input = tile))
+            x += 1
+
+    print("Raster green ok")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+#################################### merge nuages découpés ########################################
+
+def merge_cloud():  
+
+    merge_cloud_json = """
+    {
+        "pipeline":	[
+            "%s/cache/*.laz",
+            {
+                "type":"filters.merge"
+            },
+            {
+                "type" : "writers.las",
+                "scale_x":"0.001",
+                "scale_y":"0.001",
+                "scale_z":"0.001",
+                "offset_x":"auto",
+                "offset_y":"auto",
+                "offset_z":"auto",
+                "filename" : "%s/%s_output.laz"
+            }
+        ]
+    }
+    """% (output_folder, output_folder, filename) # Assemblage de toutes les dalles du nuage pour recréer un seul nuage comme en entrée
+
+    pipeline = pdal.Pipeline(merge_cloud_json)
+    count = pipeline.execute()
+    arrays = pipeline.arrays
+    metadata = pipeline.metadata
+    log = pipeline.log
+
+    print("Nuage fusionné")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+##################################### analyse du nuage output #####################################
+
+def info_nuage_out():
+    info_cloud = "pdal info -i %s/%s_output.laz > %s/log/%s_infos_output.json" % (output_folder, filename, output_folder, filename)
+    os.system(info_cloud) # Pdal info sur le nuage ré-assemblé avec potentiellement le champs scalairer HAG et une classif sol
+
+    print("Rapport du nuage traité crée")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+
+###################################### Merge du raster final ######################################
+
+def merge_elevation():
+    files_Elevation_tile = (glob.glob("%s\cache\*_elevation.tif" % (output_folder)))
+    g = gdal.Warp("%s//cache\Elevation.tif" % (output_folder), files_Elevation_tile, format="GTiff",
+                options=["COMPRESS=LZW", "TILED=YES"]) # Asemblage des dalles de rasters elevation
+    g = None
+
+def merge_intensity():
+    files_Intensity_tile = (glob.glob("%s\cache\*_intensity.tif" % (output_folder)))
+    g = gdal.Warp("%s//cache\Intensity.tif" % (output_folder), files_Intensity_tile, format="GTiff",
+                options=["COMPRESS=LZW", "TILED=YES"]) # Asemblage des dalles de rasters intensity
+    g = None
+
+def merge_HAG():
+    files_HAG_tile = (glob.glob("%s\cache\*_hag.tif" % (output_folder)))
+    g = gdal.Warp("%s//cache\HAG.tif" % (output_folder), files_HAG_tile, format="GTiff",
+                options=["COMPRESS=LZW", "TILED=YES"]) # Asemblage des dalles de rasters HAG
+    g = None
+
+def merge_RGB():
+    files_red_tile = (glob.glob("%s\cache\*_red.tif" % (output_folder)))
+    g = gdal.Warp("%s//cache/red.tif" % (output_folder), files_red_tile, format="GTiff",
+                options=["COMPRESS=LZW", "TILED=YES"]) # Asemblage des dalles de rasters rouge
+    g = None 
+
+    files_green_tile = (glob.glob("%s\cache\*_green.tif" % (output_folder)))
+    g = gdal.Warp("%s//cache/green.tif" % (output_folder), files_green_tile, format="GTiff",
+                options=["COMPRESS=LZW", "TILED=YES"]) # Asemblage des dalles de rasters vert
+    g = None    
+
+    files_blue_tile = (glob.glob("%s\cache\*_blue.tif" % (output_folder)))
+    g = gdal.Warp("%s//cache/blue.tif" % (output_folder), files_blue_tile, format="GTiff",
+                options=["COMPRESS=LZW", "TILED=YES"]) # Asemblage des dalles de rasters bleu
+    g = None    
+
+    command = "python %s/gdal_merge.py -separate -o %s/%s_RGB.tif -co PHOTOMETRIC=RGB %s/cache/RED.tif %s/cache/GREEN.tif %s/cache/BLUE.tif" % (path_pipeline, output_folder, filename, output_folder, output_folder, output_folder)
+    os.system(command) # Asemblage des raster Red Green Blue pour en faire un RGB
+
+    print("Raster RGB ok")
+    print("--- %s s ---" % round((time.time() - start_time)))
+
+########################################### Intensity_GS ##########################################
+
+def gs_intensity_raster():
+    command = "gdaldem color-relief %s//cache/Intensity.tif %s/TNI_%s_1.cpt %s/%s_Grayscale.tif -alpha" % (output_folder, path_cpt, type_capteur, output_folder, filename)
+    os.system(command) # Réhaussement de l'intensité sur une échelle de nuances de gris
+
+
+########################################### Intensity_RGB #########################################
+
+def rgb_intensity_raster():
+    command = "gdaldem color-relief %s//cache/Intensity.tif %s/TNI_%s_2.cpt %s/%s_Intensity_rgb.tif -alpha" % (output_folder, path_cpt, type_capteur, output_folder,filename)
+    os.system(command) # Réhaussement de l'intensité sur une palette de RGB
+
+
+########################################## Elevation ##############################################
+
+def elevation_raster():
+    command = "gdaldem hillshade %s//cache/Elevation.tif  %s/%s_Elevatio.tif -z 1 -compute_edges -alg ZevenbergenThorne -alt 30 -multidirectional -alpha" % (output_folder, output_folder, filename)
+    os.system(command)
+    command = "gdaldem color-relief %s/%s_Elevatio.tif %s/TNI_HS.cpt %s/%s_Elevation_grayscale.tif -alpha" % (output_folder, filename, path_cpt, output_folder, filename)
+    os.system(command)
+    os.remove("%s/%s_Elevatio.tif" % (output_folder, filename)) # Application d'un ombrage sur le raster d'élévation
+
+
+############################################## HAG ################################################
+
+def hag_raster():
+    command = "gdaldem color-relief %s//cache/HAG.tif %s/TNI_HAG.cpt %s/%s_Heiht_Above_Ground.tif -alpha" % (output_folder, path_cpt, output_folder, filename)
+    os.system(command) # Colorisation en rouge du raster HAG. On peut songer à faire une coupe à X mètre du sol via le pipeline utilsé ici
+
+
+########################################### Elevation colored #####################################
+
+def colored_elevation():
+    command = "gdaldem color-relief %s/cache/Elevation.tif %s/TNI_ZRamp.cpt %s/cache/ZRamp.tif -alpha" % (output_folder, path_cpt, output_folder)
+    os.system(command)
+
+    command = ('python %s/gdal_calc.py -A %s/%s_Elevation_grayscale.tif -B %s/cache/ZRamp.tif --allBands=B --calc="uint8( (2 * (A/255.)*(B/255.)*(A<128) + ( 1 - 2 * (1-(A/255.))*(1-(B/255.)) ) * (A>=128) ) * 255 )" --outfile=%s/%s_Elevation_rgb.tif' % (path_pipeline, output_folder, filename, output_folder, output_folder, filename))
+    os.system(command) # Colorisation du raster d'élévation avec une palette de couleur selon l'altitude absolue
+
+    
+###################################################################################################
+###################################################################################################
+###################################################################################################
+
+################################################### GUI ###########################################
+
+use_custom_titlebar = False
+
+def make_window(theme=Theme): # Création du GUI avec "Simple GUI"
+    NAME_SIZE = 23
+
+    def name(name):
+        dots = NAME_SIZE-len(name)-2
+        return sg.Text(name + ' ' + '•'*dots, size=(NAME_SIZE,1), justification='r',pad=(0,0), font='Courier 10')
+
+    sg.theme(theme) # thème défini au début du code
+
+    layout_l = [[name('CLOUD'), sg.HSep()],
+                [sg.Text('Input cloud (las/laz)')],
+                [sg.Input(s=(40,1)), sg.FileBrowse()], # Permet d'aller chercher le nuage en input
+                [sg.Text('Output folder')],
+                [sg.Input(s=(40,1)), sg.FolderBrowse()], # Indique le dossier de sortie              
+                [name('Info input cloud'), sg.Checkbox('')],
+                [name('Points per box'), sg.Spin(['1000000','10000000','15000000','50000000'], s=(15,2))],
+                [name('Classification'), sg.Combo(['none','SMRF','CSF','PMF'], default_value = 'none', s=(15,2))],
+                [name('Create HAG'), sg.Checkbox('')],                                 
+                [name('Info output cloud'), sg.Checkbox('')],
+                [name('-ProgressBar'), sg.ProgressBar(100, orientation='h', s=(10,20), k='-PBAR_1-')],
+                [sg.Text('')],   
+                [sg.Text('')],             
+                [sg.Text('')]]
+
+    layout_r  = [[name('RASTER'), sg.HSep()],
+                [name('Type of cloud'), sg.Combo(['DIMORPH','MMS','FARO','VIAMETRIS'], default_value = 'DIMORPH', s=(15,22))],
+                [name('Raster GS'), sg.Checkbox('')],
+                [name('Raster RGB'), sg.Checkbox('')],
+                [name('Raster Elevation GS'), sg.Checkbox('')],
+                [name('Raster Elevation RGB'), sg.Checkbox('')],                
+                [name('Raster HAG'), sg.Checkbox('')],
+                [name('-ProgressBar'), sg.ProgressBar(100, orientation='h', s=(10,20), k='-PBAR_2-')],
+                [sg.Text('')], 
+                [sg.Text('')],                
+                [name('Preview'), sg.HSep()],
+                [name('Preview'), sg.Checkbox('')],  
+                [sg.Text('')],                                                                                     
+                [sg.OK(), sg.Cancel()]] # Lance le traitement                                                                        
+
+    layout = [[sg.T('Traitement de nuage de points', font='_ 18', justification='c', expand_x=True)],
+              [sg.Col(layout_l), sg.Col(layout_r)]] # Compile les 2 fenêtre définies au dessus
+
+    window = sg.Window('Programme CBR', layout, finalize=True, right_click_menu=sg.MENU_RIGHT_CLICK_EDITME_VER_EXIT, keep_on_top=True, use_custom_titlebar=use_custom_titlebar)
+
+    window['-PBAR_1-'].update(0)
+    window['-PBAR_2-'].update(0) 
+
+    return window
+
+# Start of the program
+window = make_window()
+
+while True: # Tant que le GUI est affiché
+
+    event, values = window.read()
+
+    if event in (sg.WIN_CLOSED, 'Cancel'): # On peut en sortir avec Cancel
+        break
+
+    window['-PBAR_1-'].update(5)
+
+    input_file = values[1] # récupération du chemin du nuage sélectionné
+    filename = os.path.basename(input_file)
+    filename = filename.split('.')
+    filename = ''.join(filename[0:len(filename)-1])
+    output_folder = values[2]
+
+    try:
+        shutil.rmtree("%s/cache" % (output_folder)) # Suppression du dossier cache s'il existe pour le recréer
+    except OSError as e:
+        print("Dossier cache cree")
+    try:
+        shutil.rmtree("%s/log" % (output_folder)) # Suppression du dossier log s'il existe pour le recréer
+    except OSError as e:
+        print("Dossier log cree")
+ 
+
+    os.mkdir("%s/cache" % (output_folder))
+    os.mkdir("%s/log" % (output_folder))
+
+    logging.basicConfig(filename=output_folder+'\\log\\debug.log',filemode='w',format='%(asctime)s - %(levelname)s - %(message)s',datefmt='%H:%M:%S',level=logging.DEBUG) # Rempli le fichier log
+
+    logging.info("###### Lancement du programme ######")
+
+    logging.info("nuage input : " +input_file)
+    logging.info("nom nuage input : " +filename)
+    logging.info("dossier output : " +output_folder)
+
+    if (values[3]) == True : # Pour chaque "values" renseignée dasn le GUI on active des fonctions définies plus haut
+        info_nuage()
+        logging.info("fonction info nuage effectuee")
+    window['-PBAR_1-'].update(10)
+
+    points_par_box = values[4]
+
+    try:
+        decoupage_nuage()
+        logging.info("fonction decoupage nuage effectuee")
+    except:
+        print("pass")
+    window['-PBAR_1-'].update(20)
+
+    if (values[5]) == 'SMRF' :
+        smrf_threads = multiprocessingSMRF()
+        logging.info("fonction classif_smrf effectuee")
+    if (values[5]) == 'CSF' :
+        csf_threads = multiprocessingCSF()
+        logging.info("fonction classif_csf effectuee")
+    if (values[5]) == 'PMF' :
+        pmf_threads = multiprocessingPMF()
+        logging.info("fonction classif_pmf effectuee")
+    window['-PBAR_1-'].update(50)
+
+    if (values[6]) == True :
+        creation_hag()
+        logging.info("fonction creation_hag effectuee")
+
+    try:
+        merge_cloud()
+        logging.info("fonction merge_cloud effectuee")
+    except:
+        print("pass")
+    window['-PBAR_1-'].update(90) 
+
+    if (values[7]) == True :
+        info_nuage_out()
+        logging.info("fonction info_nuage_out effectuee")
+    window['-PBAR_1-'].update(100)  
+
+###################################################################################################
+
+
+    type_capteur = values[9]
+    
+    if (values[9]) == 'MMS' or (values[9]) == 'FARO' or (values[9]) == 'MMS':
+
+        if (values[10]) == True or (values[11]) == True :
+            multiprocessingINT()
+            logging.info("fonction raster_intensite effectuee")
+            window['-PBAR_2-'].update(10)
+            merge_intensity()
+            logging.info("fonction merge_intensity effectuee")
+            window['-PBAR_2-'].update(20)
+
+        if (values[10]) == True :    
+            gs_intensity_raster()
+            logging.info("fonction gs_intensity_raster effectuee")
+            window['-PBAR_2-'].update(30)
+
+        if (values[11]) == True :
+            rgb_intensity_raster()
+            logging.info("fonction rgb_intensity_raster effectuee")
+            window['-PBAR_2-'].update(40)
+    
+    if (values[9]) == 'DIMORPH':
+
+        if (values[11]) == True :
+            multiprocessing_red()
+            multiprocessing_green()
+            multiprocessing_blue()
+            merge_RGB()
+
+        if (values[10]) == True :
+            multiprocessingINT()
+            logging.info("fonction raster_intensite effectuee")
+            window['-PBAR_2-'].update(10)
+            merge_intensity()
+            logging.info("fonction merge_intensity effectuee")
+            window['-PBAR_2-'].update(20)
+            gs_intensity_raster()
+            logging.info("fonction gs_intensity_raster effectuee")
+            window['-PBAR_2-'].update(30)
+
+            
+          
+    if (values[12]) == True or (values[13]) == True :      
+        multiprocessingELEV()
+        logging.info("fonction raster_elevation effectuee")
+        window['-PBAR_2-'].update(50)
+        merge_elevation()
+        logging.info("fonction merge_elevation effectuee")
+        window['-PBAR_2-'].update(60)
+        elevation_raster()
+        logging.info("fonction elevation_raster effectuee")
+        window['-PBAR_2-'].update(64)
+
+    if (values[13]) == True :
+        colored_elevation()
+        window['-PBAR_2-'].update(66)
+
+    if (values[12]) == False and (values[13]) == True :
+        os.remove("%s/%s_Elevation_grayscale.tif" % (output_folder, filename))
+
+    if (values[14]) == True :
+        multiprocessingHAG()
+        logging.info("fonction raster_hag effectuee")
+        window['-PBAR_2-'].update(70)
+        merge_HAG()
+        logging.info("fonction merge_HAG effectuee")
+        window['-PBAR_2-'].update(80)
+        hag_raster()
+        logging.info("fonction hag_raster effectuee")
+        window['-PBAR_2-'].update(90)
+
+    window['-PBAR_2-'].update(100) 
+          
+    if (values[16]) == True :
+        logging.info("ouverture du programme Preview")
+        exec(open("%s" % (path_PREVIEW)).read())
+        logging.info("fermeture du programme Preview")
+
+    print("\n\n--------------- Fin des traitements --------------\n\n")
+
+print(values) # Affichage des "values" renseignées dans le GUI
+
+###################################################################################################
+######################################## Fin des traitements ######################################
+###################################################################################################
+
+logging.info("######### Fin du programme #########")
+print("\n\n---------------- Fin du programme ----------------\n\n")
+
+
+###################################################################################################
+###################################################################################################
+###################################################################################################
